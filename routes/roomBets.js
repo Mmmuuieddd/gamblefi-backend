@@ -13,7 +13,7 @@ const GameEvent = require('../models/GameEvent');
 router.get('/', async (req, res) => {
   try {
     const { roomId } = req.query;
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 1000 } = req.query;
     
     // 驗證房間ID
     if (!roomId || isNaN(parseInt(roomId))) {

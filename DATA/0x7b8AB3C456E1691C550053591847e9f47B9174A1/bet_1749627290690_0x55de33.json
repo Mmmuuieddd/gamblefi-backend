@@ -1,0 +1,23 @@
+{
+  "id": "6849319a6a0117d2defb3bde",
+  "roomId": 1,
+  "playerAddress": "0x7b8AB3C456E1691C550053591847e9f47B9174A1",
+  "playerAddressLowerCase": "0x7b8ab3c456e1691c550053591847e9f47b9174a1",
+  "timestamp": "2025-06-11T07:34:50.685Z",
+  "formattedTime": "2025/06/11 下午15:34:50",
+  "betAmount": "0.01",
+  "betBig": true,
+  "betChoice": "大",
+  "won": false,
+  "result": "輸",
+  "rewardAmount": "0.0",
+  "hashValue": 4,
+  "hashValueText": "4(小)",
+  "transactionHash": "0x55de33148b88b6a0033ac051d0dd44a0de1c8ce9440e3c52195ac01f4f74ca17",
+  "blockHash": "0x039c5d2a37223646cba6944746fa703a30507ae2e495b901f997e678ff50c14f",
+  "blockNumber": 17496273,
+  "resultBlock": 54397474,
+  "eventType": "BetSettled",
+  "betId": "57",
+  "relatedEventId": "684931916a0117d2defb3bdc"
+}

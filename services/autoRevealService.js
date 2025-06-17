@@ -92,6 +92,47 @@ class AutoRevealService extends EventEmitter {
    * 停止服務
    * @returns {boolean} 是否成功停止
    */
+  /**
+   * 檢查 WebSocket 連接是否健康
+   * @returns {Promise<boolean>} 連接是否健康
+   */
+  async isWebSocketHealthy() {
+    try {
+      if (!this.wsManager || !this.wsManager.wsProvider) {
+        console.log('WebSocket 提供者未初始化');
+        return false;
+      }
+
+      // 檢查最後收到區塊的時間
+      const now = Date.now();
+      const lastBlockTime = this.wsManager.lastBlockTime || 0;
+      const blockAge = now - lastBlockTime;
+      const MAX_BLOCK_AGE = 5 * 60 * 1000; // 5分鐘
+
+      // 檢查區塊是否過期
+      if (blockAge > MAX_BLOCK_AGE) {
+        console.warn(`區塊已過期 ${Math.floor(blockAge / 1000)} 秒未更新`);
+        return false;
+      }
+
+      // 檢查 WebSocket 連接狀態
+      try {
+        await this.wsManager.wsProvider.getBlockNumber();
+        return true;
+      } catch (error) {
+        console.error('檢查 WebSocket 連接時出錯:', error.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('執行健康檢查時出錯:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 停止服務
+   * @returns {boolean} 是否成功停止
+   */
   stop() {
     console.log('正在停止自動揭示服務...');
     
@@ -573,17 +614,65 @@ class AutoRevealService extends EventEmitter {
     
     // 每分鐘檢查一次
     this.reconnectInterval = setInterval(async () => {
-      if (!this.wsProvider || !this.wsManager || !this.wsManager.isConnected) {
-        console.log('檢測到 WebSocket 連接可能中斷，嘗試重新連接...');
-        try {
-          await this._initWebSocketConnection();
-        } catch (error) {
-          console.error('重新初始化 WebSocket 連接失敗:', error);
+      try {
+        // 檢查基本連接狀態
+        if (!this.wsProvider || !this.wsManager || !this.wsManager.isConnected) {
+          console.log('檢測到 WebSocket 連接中斷，嘗試重新連接...');
+          await this._reconnectWebSocket();
+          return;
         }
+        
+        // 檢查區塊更新是否停滯
+        const now = Date.now();
+        const lastBlockTime = this.wsManager.lastBlockTime || 0;
+        const blockAge = now - lastBlockTime;
+        const MAX_BLOCK_AGE = 3 * 60 * 1000; // 3分鐘未收到新區塊視為異常
+        
+        if (blockAge > MAX_BLOCK_AGE) {
+          console.warn(`檢測到 ${Math.floor(blockAge/1000)} 秒未收到新區塊，最後區塊時間: ${new Date(lastBlockTime).toISOString()}`);
+          console.log('嘗試重新連接 WebSocket 以恢復區塊更新...');
+          await this._reconnectWebSocket();
+        } else {
+          console.debug(`WebSocket 連接正常，最後區塊更新於 ${Math.floor(blockAge/1000)} 秒前`);
+        }
+      } catch (error) {
+        console.error('WebSocket 監控檢查出錯:', error);
       }
-    }, 60000);
+    }, 60000); // 每分鐘檢查一次
     
     console.log('啟動 WebSocket 連接監控，每 60 秒檢查一次');
+  }
+  
+  /**
+   * 重新連接 WebSocket
+   * @private
+   */
+  async _reconnectWebSocket() {
+    try {
+      // 清理現有連接
+      if (this.wsManager) {
+        console.log('正在清理現有 WebSocket 連接...');
+        try {
+          await this.wsManager.disconnect();
+        } catch (cleanupError) {
+          console.error('清理 WebSocket 連接時出錯:', cleanupError);
+        }
+      }
+      
+      // 重新初始化連接
+      console.log('正在重新初始化 WebSocket 連接...');
+      await this._initWebSocketConnection();
+      
+      // 重置最後區塊時間
+      if (this.wsManager) {
+        this.wsManager.lastBlockTime = Date.now();
+      }
+      
+      console.log('WebSocket 重新連接成功');
+    } catch (error) {
+      console.error('WebSocket 重新連接失敗:', error);
+      throw error;
+    }
   }
   
   /**

@@ -30,12 +30,52 @@ app.use('/api/game-records', gameRecordRoutes);
 app.use('/api/room-bets', roomBetsRoutes);
 
 // 健康檢查 API
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    service: 'gambling-auto-reveal-service',
-    databaseConnected: mongoose.connection.readyState === 1
-  });
+app.get('/health', async (req, res) => {
+  try {
+    const autoRevealService = getAutoRevealService();
+    const dbConnected = mongoose.connection.readyState === 1;
+    const wsHealthy = autoRevealService ? await autoRevealService.isWebSocketHealthy() : false;
+    
+    const isHealthy = dbConnected && wsHealthy;
+    const status = isHealthy ? 200 : 503;
+    
+    const response = {
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      service: 'gambling-auto-reveal-service',
+      database: {
+        connected: dbConnected,
+        status: dbConnected ? 'connected' : 'disconnected'
+      },
+      websocket: {
+        connected: wsHealthy,
+        lastBlockTime: autoRevealService?.wsManager?.lastBlockTime 
+          ? new Date(autoRevealService.wsManager.lastBlockTime).toISOString()
+          : 'unknown',
+        blockAge: autoRevealService?.wsManager?.lastBlockTime 
+          ? Date.now() - autoRevealService.wsManager.lastBlockTime 
+          : 'unknown',
+        status: wsHealthy ? 'connected' : 'disconnected'
+      }
+    };
+
+    // 只有在不健康時才記錄警告
+    if (!isHealthy) {
+      console.warn('健康檢查失敗:', JSON.stringify(response, null, 2));
+    } else {
+      // 健康時只記錄調試信息
+      console.debug('健康檢查通過');
+    }
+
+    res.status(status).json(response);
+  } catch (error) {
+    console.error('健康檢查處理出錯:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // 服務狀態 API
